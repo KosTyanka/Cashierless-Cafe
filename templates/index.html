@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drink Manager</title>
+</head>
+<body>
+    <h1>Drink Management</h1>
+
+    <h2>Add a New Drink</h2>
+    <form id="addDrinkForm">
+        <input type="text" id="name" placeholder="Drink Name" required>
+        <input type="text" id="buyer" placeholder="Buyer" required>
+        <input type="number" step="0.01" id="cost" placeholder="Cost" required>
+        <button type="submit">Add Drink</button>
+    </form>
+
+    <h2>Drinks List</h2>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Buyer</th>
+                <th>Cost</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="drinksTable"></tbody>
+    </table>
+
+    <script>
+        const apiBase = '/drinks';
+
+        // Fetch all drinks
+        async function fetchDrinks() {
+            const response = await fetch(apiBase);
+            const drinks = await response.json();
+            const drinksTable = document.getElementById('drinksTable');
+            drinksTable.innerHTML = '';
+            drinks.forEach(drink => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${drink.id}</td>
+                    <td>${drink.name}</td>
+                    <td>${drink.buyer}</td>
+                    <td>${drink.cost}</td>
+                    <td>
+                        <button onclick="deleteDrink(${drink.id})">Delete</button>
+                        <button onclick="updateDrink(${drink.id})">Update</button>
+                    </td>
+                `;
+                drinksTable.appendChild(row);
+            });
+        }
+
+        // Add a new drink
+        document.getElementById('addDrinkForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('name').value;
+            const buyer = document.getElementById('buyer').value;
+            const cost = parseFloat(document.getElementById('cost').value);
+
+            const response = await fetch(apiBase, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, buyer, cost }),
+            });
+
+            if (response.ok) {
+                alert('Drink added successfully');
+                fetchDrinks();
+            } else {
+                alert('Failed to add drink');
+            }
+        });
+
+        // Delete a drink
+        async function deleteDrink(id) {
+            const response = await fetch(`${apiBase}/${id}`, { method: 'DELETE' });
+            if (response.ok) {
+                alert('Drink deleted successfully');
+                fetchDrinks();
+            } else {
+                alert('Failed to delete drink');
+            }
+        }
+
+        // Update a drink (basic implementation)
+        async function updateDrink(id) {
+            const name = prompt('Enter new name:');
+            const buyer = prompt('Enter new buyer:');
+            const cost = parseFloat(prompt('Enter new cost:'));
+            const response = await fetch(`${apiBase}/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, name, buyer, cost }),
+            });
+
+            if (response.ok) {
+                alert('Drink updated successfully');
+                fetchDrinks();
+            } else {
+                alert('Failed to update drink');
+            }
+        }
+
+        // Initialize the drinks table
+        fetchDrinks();
+    </script>
+</body>
+</html>
