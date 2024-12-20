@@ -29,11 +29,16 @@
         </thead>
         <tbody id="drinksTable"></tbody>
     </table>
+    
+    <h2>FIND DRINK BY ID</h2>
+    <form id="findDrinkById">
+        <input type="text" id="DrinkId" placeholder="Drink ID" required>
+        <button type="submit">FIND DRINK</button>
+    </form>
+    <div id="drinkDetails"></div>
 
     <script>
         const apiBase = '/drinks';
-
-        // Fetch all drinks
         async function fetchDrinks() {
             const response = await fetch(apiBase);
             const drinks = await response.json();
@@ -75,6 +80,35 @@
                 alert('Failed to add drink');
             }
         });
+
+        document.getElementById('findDrinkById').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const drinkId = document.getElementById('DrinkId').value;
+        const drinkDetailsDiv = document.getElementById('drinkDetails');
+        drinkDetailsDiv.innerHTML = '';
+
+        try {
+            const response = await fetch(`${apiBase}/${drinkId}`);
+            if (response.ok) {
+                const drink = await response.json();
+                drinkDetailsDiv.innerHTML = `
+                    <p><strong>ID:</strong> ${drink.id}</p>
+                    <p><strong>Name:</strong> ${drink.name}</p>
+                    <p><strong>Buyer:</strong> ${drink.buyer}</p>
+                    <p><strong>Cost:</strong> $${drink.cost}</p>
+                `;
+            } else if (response.status === 404) {
+                drinkDetailsDiv.innerHTML = '<p style="color:red;">Drink not found.</p>';
+            } else {
+                drinkDetailsDiv.innerHTML = '<p style="color:red;">Failed to fetch drink details.</p>';
+            }
+        } catch (error) {
+           console.error('Error fetching drink:', error);
+            drinkDetailsDiv.innerHTML = '<p style="color:red;">An error occurred while fetching the drink details.</p>';
+        }
+    });
+
+
 
         // Delete a drink
         async function deleteDrink(id) {
