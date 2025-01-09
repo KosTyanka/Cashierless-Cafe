@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Administrative Panel</title>
+</head>
+<body>
+    <h1>Administrative Panel</h1>
+    <h2>Send Promotional Email</h2>
+    <form id="sendEmailForm">
+        <div>
+            <label for="emailTo">Recipient Email:</label>
+            <input type="email" id="emailTo" placeholder="user@example.com" required>
+        </div>
+        <div>
+            <label for="emailSubject">Subject:</label>
+            <input type="text" id="emailSubject" placeholder="Subject" required>
+        </div>
+        <div>
+            <label for="emailBody">Message:</label>
+            <textarea id="emailBody" rows="5" placeholder="Type your email message" required></textarea>
+        </div>
+        <button type="submit">Send Email</button>
+    </form>
+    <div id="resultMessage"></div>
+    <script>
+        document.getElementById('sendEmailForm').addEventListener('submit', async (e) => {
+            e.preventDefault()
+            const emailTo = document.getElementById('emailTo').value
+            const emailSubject = document.getElementById('emailSubject').value
+            const emailBody = document.getElementById('emailBody').value
+            const response = await fetch('/admin/sendEmail', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ emailTo, emailSubject, emailBody }),
+            })
+            const resultDiv = document.getElementById('resultMessage')
+            if (response.ok) {
+                resultDiv.innerText = 'Email sent successfully'
+            } else {
+                const err = await response.text()
+                resultDiv.innerText = 'Failed to send email: ' + err
+            }
+        })
+    </script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>User Profile</title>
+</head>
+<body>
+    <h1>User Profile</h1>
+    <h2>Contact Support</h2>
+    <form id="supportForm">
+        <div>
+            <label for="supportSubject">Subject:</label>
+            <input type="text" id="supportSubject" placeholder="Subject" required>
+        </div>
+        <div>
+            <label for="supportMessage">Message:</label>
+            <textarea id="supportMessage" rows="5" placeholder="Describe your issue or request" required></textarea>
+        </div>
+        <button type="submit">Send to Support</button>
+    </form>
+    <div id="supportResult"></div>
+    <script>
+        document.getElementById('supportForm').addEventListener('submit', async (e) => {
+            e.preventDefault()
+            const subject = document.getElementById('supportSubject').value
+            const message = document.getElementById('supportMessage').value
+            const response = await fetch('/user/sendSupportEmail', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subject, message }),
+            })
+            const resultDiv = document.getElementById('supportResult')
+            if (response.ok) {
+                resultDiv.innerText = 'Support request sent successfully'
+            } else {
+                const err = await response.text()
+                resultDiv.innerText = 'Failed to send request: ' + err
+            }
+        })
+    </script>
+</body>
+</html>
