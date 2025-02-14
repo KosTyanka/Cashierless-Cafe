@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Chat</title>
+  <style>
+    #chatHistory {
+      border: 1px solid #ccc;
+      height: 300px;
+      overflow-y: auto;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    #chatInput {
+      width: 80%;
+    }
+    #sendButton {
+      width: 18%;
+    }
+  </style>
+</head>
+<body>
+  <h1>Admin Chat</h1>
+  <div id="chatHistory"></div>
+  <input type="text" id="chatInput" placeholder="Type your message here..." autofocus>
+  <button id="sendButton">Send</button>
+  <script>
+    const socket = new WebSocket('ws://localhost:8080/ws/adminChat');
+    const chatHistory = document.getElementById('chatHistory');
+    const chatInput = document.getElementById('chatInput');
+    const sendButton = document.getElementById('sendButton');
+
+    socket.onopen = () => {
+      console.log('Connected to admin chat');
+    };
+
+    socket.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      const p = document.createElement('p');
+      p.textContent = `${msg.timestamp} ${msg.username}: ${msg.content}`;
+      chatHistory.appendChild(p);
+      chatHistory.scrollTop = chatHistory.scrollHeight;
+    };
+
+    socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    sendButton.addEventListener('click', sendMessage);
+    chatInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        sendMessage();
+      }
+    });
+
+    function sendMessage() {
+      const message = chatInput.value.trim();
+      if (message === '') return;
+      const msgObj = {
+        username: 'Admin',
+        content: message,
+        timestamp: new Date().toLocaleTimeString()
+      };
+      socket.send(JSON.stringify(msgObj));
+      chatInput.value = '';
+    }
+  </script>
+</body>
+</html>

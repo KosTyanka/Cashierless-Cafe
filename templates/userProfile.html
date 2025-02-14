@@ -1,42 +1,129 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>User Profile</title>
+  <meta charset="UTF-8">
+  <title>User Profile</title>
+  <style>
+    #chatHistory {
+      border: 1px solid #ccc;
+      height: 200px;
+      overflow-y: auto;
+      margin-bottom: 10px;
+      padding: 5px;
+    }
+    /* Initially hide the chat section */
+    #chatSection { display: none; }
+  </style>
 </head>
 <body>
-    <h1>User Profile</h1>
-    <h2>Contact Support</h2>
-    <form id="supportForm">
-        <div>
-            <label for="supportSubject">Subject:</label>
-            <input type="text" id="supportSubject" placeholder="Subject" required>
-        </div>
-        <div>
-            <label for="supportMessage">Message:</label>
-            <textarea id="supportMessage" rows="5" placeholder="Describe your issue or request" required></textarea>
-        </div>
-        <button type="submit">Send to Support</button>
-    </form>
-    <div id="supportResult"></div>
-    <script>
-        document.getElementById('supportForm').addEventListener('submit', async (e) => {
-            e.preventDefault()
-            const subject = document.getElementById('supportSubject').value
-            const message = document.getElementById('supportMessage').value
-            const response = await fetch('/user/sendSupportEmail', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ subject, message }),
-            })
-            const resultDiv = document.getElementById('supportResult')
-            if (response.ok) {
-                resultDiv.innerText = 'Support request sent successfully'
-            } else {
-                const err = await response.text()
-                resultDiv.innerText = 'Failed to send request: ' + err
-            }
-        })
-    </script>
+  <h1>User Profile</h1>
+  <p>{{ .FullName }}!</p>
+  <button onclick="window.location.href='/logout'">Logout</button>
+  
+  <h2>Contact Support</h2>
+  <form id="supportForm">
+    <div>
+      <label for="supportSubject">Subject:</label>
+      <input type="text" id="supportSubject" placeholder="Subject" required>
+    </div>
+    <div>
+      <label for="supportMessage">Message:</label>
+      <textarea id="supportMessage" rows="5" placeholder="Describe your issue or request" required></textarea>
+    </div>
+    <div>
+      <label for="supportAttachments">Attach Images:</label>
+      <input type="file" id="supportAttachments" multiple accept="image/*">
+    </div>
+    <button type="submit">Send to Support</button>
+  </form>
+  
+  <!-- Hidden inputs to store user info for chat -->
+  <input type="hidden" id="userFullName" value="{{ .FullName }}">
+  <input type="hidden" id="userEmail" value="{{ .Email }}">
+  <div id="supportResult" style="color: red;"></div>
+  
+  <h2>Chat with Support</h2>
+  <button id="startChatButton">Start Chat</button>
+  <div id="chatSection">
+    <div id="chatHistory"></div>
+    <input type="text" id="chatInput" placeholder="Type a message">
+    <button id="sendChatButton">Send</button>
+  </div>
+  
+  <script>
+    document.getElementById('supportForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const subject = document.getElementById('supportSubject').value;
+      const message = document.getElementById('supportMessage').value;
+      const attachments = await encodeImages(document.getElementById('supportAttachments').files);
+      try {
+        const response = await fetch('/user/sendSupportEmail', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + localStorage.getItem('jwt_token')
+          },
+          body: JSON.stringify({ subject, message, attachments }),
+        });
+        if (!response.ok) {
+          let errorData = {};
+          try {
+            errorData = await response.json();
+          } catch (err) {}
+          alert('Failed to send support email: ' + (errorData.alert || errorData.message || "Unknown error"));
+        } else {
+          alert('Support email sent successfully!');
+        }
+      } catch (error) {
+        alert('Failed to send support email. Error: ' + error.message);
+        console.error('Error:', error);
+      }
+    });
+    
+    async function encodeImages(files) {
+      const encodedFiles = [];
+      for (const file of files) {
+        const reader = new FileReader();
+        const base64Promise = new Promise((resolve) => {
+          reader.onloadend = () => resolve(reader.result.split(',')[1]);
+        });
+        reader.readAsDataURL(file);
+        encodedFiles.push(await base64Promise);
+      }
+      return encodedFiles;
+    }
+    
+    // Chat functionality for user
+    let userSocket;
+    document.getElementById('startChatButton').addEventListener('click', () => {
+      userSocket = new WebSocket('ws://localhost:8080/ws/userChat');
+      userSocket.onopen = () => {
+        console.log('Connected to chat');
+        document.getElementById('chatSection').style.display = 'block';
+      };
+      userSocket.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        const historyDiv = document.getElementById('chatHistory');
+        const p = document.createElement('p');
+        p.textContent = `${msg.timestamp} ${msg.username}: ${msg.content}`;
+        historyDiv.appendChild(p);
+      };
+      userSocket.onerror = (err) => {
+        console.error('Chat error:', err);
+      };
+    });
+    
+    document.getElementById('sendChatButton').addEventListener('click', () => {
+      const chatInput = document.getElementById('chatInput');
+      if (!chatInput.value.trim()) return;
+      const msgObj = {
+        username: document.getElementById('userFullName').value, // use the stored full name
+        content: chatInput.value,
+        timestamp: new Date().toLocaleTimeString()
+      };
+      userSocket.send(JSON.stringify(msgObj));
+      chatInput.value = '';
+    });
+  </script>
 </body>
 </html>

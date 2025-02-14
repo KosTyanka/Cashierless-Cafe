@@ -75,6 +75,7 @@
                     <td>
                         <button onclick="deleteDrink(${drink.id})">Delete</button>
                         <button onclick="updateDrink(${drink.id})">Update</button>
+                        <button onclick="buyDrink(${drink.id})">Buy</button>
                     </td>
                 `
                 drinksTable.appendChild(row)
@@ -165,6 +166,37 @@
             }
         }
         fetchDrinks()
+
+
+        async function buyDrink(drinkId) {
+            const token = localStorage.getItem('jwt_token');
+            const payload = { drinkId: drinkId };
+            try {
+                const response = await fetch('/purchase', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    alert("Purchase failed: " + errorText);
+                    return;
+                }
+                const result = await response.json();
+                if (result.paymentURL) {
+                    // Redirect the browser to the payment form.
+                    window.location.href = result.paymentURL;
+                } else {
+                    alert("Unexpected response from purchase handler.");
+                }
+            } catch (error) {
+                alert("Purchase failed: " + error.message);
+                console.error(error);
+            }
+        }
     </script>
 </body>
 </html>

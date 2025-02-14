@@ -1,7 +1,1 @@
-Юнит тест использовать существующую функцию
-
-авторизация
-
-аутенфикаю сделать для admin page'ов 
-
-в end to end using selenium golang for login
+в end to end selenium убрать хедлесс

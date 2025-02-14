@@ -1,47 +1,203 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Administrative Panel</title>
+  <meta charset="UTF-8">
+  <title>Administrative Panel</title>
+  <style>
+    #activeChats, #adminChatHistory {
+      border: 1px solid #ccc;
+      height: 200px;
+      overflow-y: auto;
+      margin-bottom: 10px;
+      padding: 5px;
+    }
+    /* Initially hide the admin chat interface */
+    #adminChatSection { display: none; }
+  </style>
 </head>
 <body>
-    <h1>Administrative Panel</h1>
-    <h2>Send Promotional Email</h2>
-    <form id="sendEmailForm">
-        <div>
-            <label for="emailTo">Recipient Email:</label>
-            <input type="email" id="emailTo" placeholder="user@example.com" required>
-        </div>
-        <div>
-            <label for="emailSubject">Subject:</label>
-            <input type="text" id="emailSubject" placeholder="Subject" required>
-        </div>
-        <div>
-            <label for="emailBody">Message:</label>
-            <textarea id="emailBody" rows="5" placeholder="Type your email message" required></textarea>
-        </div>
-        <button type="submit">Send Email</button>
-    </form>
-    <div id="resultMessage"></div>
-    <script>
-        document.getElementById('sendEmailForm').addEventListener('submit', async (e) => {
-            e.preventDefault()
-            const emailTo = document.getElementById('emailTo').value
-            const emailSubject = document.getElementById('emailSubject').value
-            const emailBody = document.getElementById('emailBody').value
-            const response = await fetch('/admin/sendEmail', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ emailTo, emailSubject, emailBody }),
-            })
-            const resultDiv = document.getElementById('resultMessage')
-            if (response.ok) {
-                resultDiv.innerText = 'Email sent successfully'
+  <h1>Administrative Panel</h1>
+  <p>{{ .FullName }}!</p>
+  <button onclick="window.location.href='/logout'">Logout</button>
+  
+  <h2>Send Promotional Email</h2>
+  <!-- You can keep your existing promotional email form here -->
+  <form id="sendEmailForm">
+    <div>
+      <label for="emailTo">Recipient Email:</label>
+      <input type="email" id="emailTo" placeholder="user@example.com" required>
+    </div>
+    <div>
+      <label for="emailSubject">Subject:</label>
+      <input type="text" id="emailSubject" placeholder="Subject" required>
+    </div>
+    <div>
+      <label for="emailBody">Message:</label>
+      <textarea id="emailBody" rows="5" placeholder="Type your email message" required></textarea>
+    </div>
+    <div>
+      <label for="emailAttachments">Attach Images:</label>
+      <input type="file" id="emailAttachments" multiple accept="image/*">
+    </div>
+    <button type="submit">Send Email</button>
+  </form>
+  
+  <h2>Active Client Chats</h2>
+  <div id="activeChats">
+    {{ if .ActiveChats }}
+      <ul>
+        {{ range .ActiveChats }}
+          <li>
+            User: {{ .Username }} - Chat ID: {{ .ChatID }}
+            <button onclick="openAdminChat('{{ .ChatID }}')">Join Chat</button>
+            <button onclick="closeChat('{{ .ChatID }}')">Close Chat</button>
+          </li>
+        {{ end }}
+      </ul>
+    {{ else }}
+      <p>No active chats yet.</p>
+    {{ end }}
+  </div>
+  
+  <h2>Admin Chat Interface</h2>
+  <div id="adminChatSection">
+    <div id="adminChatHistory"></div>
+    <input type="text" id="adminChatInput" placeholder="Type a message">
+    <button id="sendAdminChatButton">Send</button>
+  </div>
+  
+  <script>
+    // Promotional Email handler (unchanged)
+    document.getElementById('sendEmailForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const emailTo = document.getElementById('emailTo').value;
+      const emailSubject = document.getElementById('emailSubject').value;
+      const emailBody = document.getElementById('emailBody').value;
+      const attachments = await encodeImages(document.getElementById('emailAttachments').files);
+      const response = await fetch('/admin/sendEmail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emailTo, emailSubject, emailBody, attachments }),
+      });
+      if (response.ok) {
+        alert('Email sent successfully');
+      } else {
+        const err = await response.text();
+        alert('Failed to send email: ' + err);
+      }
+    });
+    
+    async function encodeImages(files) {
+      const encodedFiles = [];
+      for (const file of files) {
+        const reader = new FileReader();
+        const base64Promise = new Promise((resolve) => {
+          reader.onloadend = () => resolve(reader.result.split(',')[1]);
+        });
+        reader.readAsDataURL(file);
+        encodedFiles.push(await base64Promise);
+      }
+      return encodedFiles;
+    }
+    
+    // WebSocket for admin chat.
+    let adminSocket;
+    function getToken() {
+        // Try getting token from localStorage
+        let token = localStorage.getItem('jwt_token');
+    
+        // If token not found in localStorage, try getting it from cookies
+        if (!token) {
+            token = document.cookie
+                .split('; ')
+                .find(row => row.startsWith('jwt_token='))
+                ?.split('=')[1];
+        }
+    
+        if (!token) {
+            console.warn("No token found in localStorage or cookies.");
+            alert("Warning: No token found. You might need to log in again.");
+        }
+    
+        return token;
+    }
+    
+    function openAdminChat(chatID) {
+        // Retrieve the token
+        const token = getToken();
+        console.log("Using Token:", token);
+    
+        if (!token) return;
+    
+        // Open WebSocket with chatID and token as query parameters.
+        adminSocket = new WebSocket(`ws://localhost:8080/ws/adminChat?chatID=${encodeURIComponent(chatID)}&token=${encodeURIComponent(token)}`);
+    
+        adminSocket.onopen = function() {
+            console.log("Admin connected to chat:", chatID);
+            document.getElementById("adminChatSection").style.display = "block";
+        };
+    
+        adminSocket.onmessage = function(event) {
+            const msg = JSON.parse(event.data);
+            const historyDiv = document.getElementById("adminChatHistory");
+            const p = document.createElement("p");
+            p.textContent = `${msg.timestamp} ${msg.username}: ${msg.content}`;
+            historyDiv.appendChild(p);
+        };
+    
+        adminSocket.onerror = function(err) {
+            console.error("Admin chat error:", err);
+            console.warn("Possible invalid token. Check server logs.");
+        };
+    }
+
+    
+    document.getElementById('sendAdminChatButton').addEventListener('click', () => {
+        const adminInput = document.getElementById('adminChatInput');
+        if (!adminInput.value.trim()) return;
+        
+        const msgObj = {
+            username: 'Admin',
+            content: adminInput.value,
+            timestamp: new Date().toLocaleTimeString()
+        };
+    
+        // Append admin message to chat history immediately
+        const historyDiv = document.getElementById("adminChatHistory");
+        const p = document.createElement("p");
+        p.textContent = `${msgObj.timestamp} ${msgObj.username}: ${msgObj.content}`;
+        historyDiv.appendChild(p);
+    
+        // Send message through WebSocket
+        adminSocket.send(JSON.stringify(msgObj));
+    
+        // Clear input field
+        adminInput.value = '';
+    });
+
+    function closeChat(chatID) {
+        if (!confirm("Are you sure you want to close this chat?")) return;
+    
+        fetch('/admin/closeChat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chatID })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert("Chat closed successfully!");
+                location.reload();
             } else {
-                const err = await response.text()
-                resultDiv.innerText = 'Failed to send email: ' + err
+                alert("Failed to close chat: " + data.message);
             }
         })
-    </script>
+        .catch(error => {
+            console.error("Error closing chat:", error);
+            alert("Error closing chat.");
+        });
+    }
+
+  </script>
 </body>
 </html>
