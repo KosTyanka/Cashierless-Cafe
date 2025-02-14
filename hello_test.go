@@ -101,8 +101,23 @@ func TestLoginIntegration(t *testing.T) {
 
 //end to end
 func TestLoginPageE2E(t *testing.T) {
-	// Set up Selenium WebDriver with Chrome in headless mode.
-	service, err := selenium.NewRemote(selenium.Capabilities{"browserName": "chrome"}, "http://localhost:4444/wd/hub")
+	// Set up Chrome options (without headless mode)
+	caps := selenium.Capabilities{
+		"browserName": "chrome",
+		"goog:chromeOptions": map[string]interface{}{
+			"args": []string{
+				"--disable-gpu",
+				"--no-sandbox",
+				"--disable-dev-shm-usage",
+				"--start-maximized",  // Open Chrome maximized
+				"--disable-infobars", // Remove automation notice
+				"--remote-debugging-port=9222",
+			}, // No "--headless" flag!
+		},
+	}
+
+	// Connect to Selenium WebDriver
+	service, err := selenium.NewRemote(caps, "http://localhost:4444/wd/hub")
 	if err != nil {
 		t.Fatalf("Failed to connect to Selenium WebDriver: %v", err)
 	}
